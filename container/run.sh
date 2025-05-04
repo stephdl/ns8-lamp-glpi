@@ -97,8 +97,25 @@ if [[ ! -d /var/lib/mysql/mysql ]]; then
 
     echo "=> Done!"
     /mysql_init.sh
+    # create the mysql settings
+    echo "=> Creating mysql settings"
+    _user=${MYSQL_USER_NAME:?}
+    _userdb=${MYSQL_USER_DB:?}
+    _userpass=${MYSQL_USER_PASS:?}
+    su - ww-data -s /bin/bash -c "/usr/bin/php /app/bin/console db:install --no-interaction --quiet --db-host=127.0.0.1 --db-port=3306 --db-name=${_userdb} --db-user=${_user} --db-password=${_userpass} --force --reconfigure"
+    # populate the time zone tables
+    echo "=> Populating the time zone tables"
+    mysql_tzinfo_to_sql /usr/share/zoneinfo | mysql  mysql
+
 else
     echo "=> Using an existing volume of MySQL"
+    echo "Upgrading glpi database"
+    su - www-data -s /bin/bash -c "/usr/bin/php  /app/bin/console glpi:maintenance:enable"
+    su - www-data -s /bin/bash -c "/usr/bin/php  /app/bin/console db:update --allow-unstable --no-interaction"
+    su - www-data -s /bin/bash -c "/usr/bin/php  /app/bin/console glpi:migration:myisam_to_innodb --no-interaction"
+    su - www-data -s /bin/bash -c "/usr/bin/php  /app/bin/console glpi:migration:utf8mb4 --no-interaction"
+    su - www-data -s /bin/bash -c "/usr/bin/php  /app/bin/console glpi:migration:unsigned_keys --no-interaction"
+    su - www-data -s /bin/bash -c "/usr/bin/php  /app/bin/console glpi:maintenance:disable"
 fi
 echo "Starting supervisord"
 exec supervisord -c /etc/supervisor/supervisord.conf -n

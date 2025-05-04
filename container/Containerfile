@@ -163,25 +163,26 @@ mv /var/www/html/glpi/files/* /var/lib/glpi && \
 mv /var/www/html/glpi/* /var/www/html 
 
 RUN mkdir -p /var/www/html/inc/ && \
-    echo "<?php \
-define('GLPI_CONFIG_DIR', '/etc/glpi/'); \
-if (file_exists(GLPI_CONFIG_DIR . '/local_define.php')) { \
-require_once GLPI_CONFIG_DIR . '/local_define.php'; \
+    echo -e "<?php \n\
+define('GLPI_CONFIG_DIR', '/etc/glpi/'); \n\
+if (file_exists(GLPI_CONFIG_DIR . '/local_define.php')) { \n\
+require_once GLPI_CONFIG_DIR . '/local_define.php'; \n\
 }" > /var/www/html/inc/downstream.php
-RUN echo "<?php \
-define('GLPI_VAR_DIR', '/var/lib/glpi'); \
-define('GLPI_DOC_DIR', GLPI_VAR_DIR); \
-define('GLPI_CRON_DIR', GLPI_VAR_DIR . '/_cron'); \
-define('GLPI_DUMP_DIR', GLPI_VAR_DIR . '/_dumps'); \
-define('GLPI_GRAPH_DIR', GLPI_VAR_DIR . '/_graphs'); \
-define('GLPI_LOCK_DIR', GLPI_VAR_DIR . '/_lock'); \
-define('GLPI_PICTURE_DIR', GLPI_VAR_DIR . '/_pictures'); \
-define('GLPI_PLUGIN_DOC_DIR', GLPI_VAR_DIR . '/_plugins'); \
-define('GLPI_RSS_DIR', GLPI_VAR_DIR . '/_rss'); \
-define('GLPI_SESSION_DIR', GLPI_VAR_DIR . '/_sessions'); \
-define('GLPI_TMP_DIR', GLPI_VAR_DIR . '/_tmp'); \
-define('GLPI_UPLOAD_DIR', GLPI_VAR_DIR . '/_uploads'); \
-define('GLPI_CACHE_DIR', GLPI_VAR_DIR . '/_cache'); \
+
+RUN echo -e "<?php \n\
+define('GLPI_VAR_DIR', '/var/lib/glpi'); \n\
+define('GLPI_DOC_DIR', GLPI_VAR_DIR); \n\
+define('GLPI_CRON_DIR', GLPI_VAR_DIR . '/_cron'); \n\
+define('GLPI_DUMP_DIR', GLPI_VAR_DIR . '/_dumps'); \n\
+define('GLPI_GRAPH_DIR', GLPI_VAR_DIR . '/_graphs'); \n\
+define('GLPI_LOCK_DIR', GLPI_VAR_DIR . '/_lock'); \n\
+define('GLPI_PICTURE_DIR', GLPI_VAR_DIR . '/_pictures'); \n\
+define('GLPI_PLUGIN_DOC_DIR', GLPI_VAR_DIR . '/_plugins'); \n\
+define('GLPI_RSS_DIR', GLPI_VAR_DIR . '/_rss'); \n\
+define('GLPI_SESSION_DIR', GLPI_VAR_DIR . '/_sessions'); \n\
+define('GLPI_TMP_DIR', GLPI_VAR_DIR . '/_tmp'); \n\
+define('GLPI_UPLOAD_DIR', GLPI_VAR_DIR . '/_uploads'); \n\
+define('GLPI_CACHE_DIR', GLPI_VAR_DIR . '/_cache'); \n\
 define('GLPI_LOG_DIR', '/var/log/glpi');" > /etc/glpi/local_define.php
 
 RUN chown root:root /var/www/html/ -R && \
@@ -197,8 +198,8 @@ find /var/lib/glpi -type d -exec chmod 0755 {} \; && \
 find /var/log/glpi -type f -exec chmod 0644 {} \; && \
 find /var/log/glpi -type d -exec chmod 0755 {} \;
 
-RUN echo "# GLPI core \
-# Run cron to execute task even when no user connected \
+RUN echo -e "# GLPI core \n\
+# Run cron to execute task even when no user connected \n\
 * * * * * apache /usr/bin/php /var/www/front/cron.php &>/dev/null" > /etc/cron.d/glpi
 
 RUN echo "Allowing Apache/PHP to write to the app" && \
