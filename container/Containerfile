@@ -157,7 +157,7 @@ RUN mkdir -p /etc/glpi
 RUN mkdir -p /var/lib/glpi
 RUN mkdir -p /var/log/glpi
 RUN mv /var/www/html/glpi/config /etc/glpi && \
-mv /var/www/html/glpi/files /var/lib/glpi && \
+mv /var/www/html/glpi/files/* /var/lib/glpi && \
 mv /var/www/html/glpi/* /var/www/html 
 
 RUN mkdir -p /var/www/html/inc/ && \
@@ -183,9 +183,9 @@ define('GLPI_CACHE_DIR', GLPI_VAR_DIR . '/_cache'); \
 define('GLPI_LOG_DIR', '/var/log/glpi');" > /etc/glpi/local_define.php
 
 RUN chown root:root /var/www/html/ -R && \
-chown www-data:www-data /etc/glpi -R && \
-chown www-data:www-data /var/lib/glpi -R && \
-chown www-data:www-data /var/log/glpi -R && \
+chown www-data:staff /etc/glpi -R && \
+chown www-data:staff /var/lib/glpi -R && \
+chown www-data:staff /var/log/glpi -R && \
 find /var/www/html/ -type f -exec chmod 0644 {} \; && \
 find /var/www/html/ -type d -exec chmod 0755 {} \; && \
 find /etc/glpi -type f -exec chmod 0644 {} \; && \
