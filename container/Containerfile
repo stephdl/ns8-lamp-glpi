@@ -153,7 +153,6 @@ RUN cd /var/www/html && \
 wget https://github.com/glpi-project/glpi/releases/download/${GLPI_VERSION}/glpi-${GLPI_VERSION}.tgz && \
 tar -xvzf glpi-${GLPI_VERSION}.tgz && \
 rm -f glpi-${GLPI_VERSION}.tgz 
-RUN ls -la /var/www/html
 RUN mkdir -p /etc/glpi
 RUN mkdir -p /var/lib/glpi
 RUN mkdir -p /var/log/glpi
@@ -163,9 +162,11 @@ define('GLPI_CONFIG_DIR', '/etc/glpi/'); \
 if (file_exists(GLPI_CONFIG_DIR . '/local_define.php')) { \
 require_once GLPI_CONFIG_DIR . '/local_define.php'; \
 }" > /var/www/html/inc/downstream.php
-RUN ls -la /var/www/html
 RUN mv /var/www/html/glpi/config /etc/glpi && \
-mv /var/www/html/glpi/files /var/lib/glpi 
+mv /var/www/html/glpi/files /var/lib/glpi && \
+mv /var/www/html/glpi/* /var/www/html && \
+mv /var/www/html/glpi/.* /var/www/html
+
 RUN echo "<?php \
 define('GLPI_VAR_DIR', '/var/lib/glpi'); \
 define('GLPI_DOC_DIR', GLPI_VAR_DIR); \
