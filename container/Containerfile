@@ -1,0 +1,227 @@
+FROM docker.io/ubuntu:noble
+MAINTAINER stephane de Labrusse <stephdl@de-labrusse.fr>
+ENV REFRESHED_AT 2024-08-25
+
+# based on Matthew Rayner <hello@rayner.io> https://github.com/mattrayner/docker-lamp
+# based on dgraziotin/lamp
+# MAINTAINER Daniel Graziotin <daniel@ineed.coffee>
+# updated for Ubuntu 20.04 LTS/PHP 7.4/PHP 8.0 Ferdinand Kasper <fkasper@modus-operandi.at>
+
+ENV DOCKER_USER_ID 501 
+ENV DOCKER_USER_GID 20
+
+ENV BOOT2DOCKER_ID 1005
+ENV BOOT2DOCKER_GID 50
+
+ENV PHPMYADMIN_VERSION=5.2.1
+
+#Environment variables to configure php
+ENV PHP_UPLOAD_MAX_FILESIZE 100M
+ENV PHP_POST_MAX_SIZE 100M
+ENV PHP_MEMORY_LIMIT 512M
+ENV PHP_MAX_EXECUTION_TIME 600
+ENV PHPMYADMIN_ENABLED True
+
+ARG PHP_VERSION
+ENV PHP_VERSION=$PHP_VERSION
+ARG GLPI_VERSION
+ENV GLPI_VERSION=$GLPI_VERSION
+
+# Tweaks to give Apache/PHP write permissions to the app
+RUN usermod -u ${BOOT2DOCKER_ID} www-data && \
+    usermod -G staff www-data && \
+    useradd -r mysql && \
+    usermod -G staff mysql && \
+    groupmod -g $(($BOOT2DOCKER_GID + 10000)) $(getent group $BOOT2DOCKER_GID | cut -d: -f1) && \
+    groupmod -g ${BOOT2DOCKER_GID} staff
+
+# Install packages
+ENV DEBIAN_FRONTEND noninteractive
+RUN apt update && apt-get install -y software-properties-common python3-launchpadlib
+RUN LC_ALL=C.UTF-8 add-apt-repository -y ppa:ondrej/php && \
+  apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 4F4EA0AAE5267A6C && \
+  apt-get update && \
+  apt-get -y upgrade && \
+  apt-get -y install supervisor \
+      vim \
+      nano \
+      wget \
+      git \
+      tree \
+      cron \
+      apache2 \
+      libapache2-mod-php${PHP_VERSION} \
+      mariadb-server \
+      pwgen \
+      ftp \
+      ftp-ssl \
+      ssmtp \
+      php${PHP_VERSION}-ftp \
+      php${PHP_VERSION}-ldap \
+      php${PHP_VERSION}-pdo-mysql \
+      php${PHP_VERSION}-mysql \
+      php${PHP_VERSION}-apcu \
+      php${PHP_VERSION}-gd \
+      php${PHP_VERSION}-xml \
+      php${PHP_VERSION}-mbstring \
+      php${PHP_VERSION}-memcached \
+      php${PHP_VERSION}-imagick \
+      php${PHP_VERSION}-intl \
+      php${PHP_VERSION}-bcmath \
+      php${PHP_VERSION}-bz2 \
+      php${PHP_VERSION}-gettext \
+      php${PHP_VERSION}-gmp \
+      php${PHP_VERSION}-imap \
+      php${PHP_VERSION}-odbc \
+      php${PHP_VERSION}-soap \
+      php${PHP_VERSION}-sqlite3 \
+      php${PHP_VERSION}-tidy \
+      php${PHP_VERSION}-zip \
+      php${PHP_VERSION}-curl \
+      php${PHP_VERSION}-cli \
+      php${PHP_VERSION}-common \
+      php${PHP_VERSION}-opcache \
+      php${PHP_VERSION}-readline \
+      zip \
+      unzip \
+      curl && \
+  apt-get -y autoremove && \
+  apt-get -y clean && \
+  echo "ServerName localhost" >> /etc/apache2/apache2.conf
+
+# Add image configuration and scripts
+ADD start-apache2.sh /start-apache2.sh
+ADD run.sh /run.sh
+RUN chmod 755 /*.sh
+ADD supervisord-apache2.conf /etc/supervisor/conf.d/supervisord-apache2.conf
+ADD supervisord-mysqld.conf /etc/supervisor/conf.d/supervisord-mysqld.conf
+ADD supervisord-cron.conf /etc/supervisor/conf.d/supervisord-cron.conf
+ADD supervisord.conf /etc/supervisor/supervisord.conf
+
+# Remove pre-installed database
+RUN rm -rf /var/lib/mysql
+
+# Add MySQL utils
+ADD mysql_init.sh /mysql_init.sh
+
+# Add phpmyadmin
+RUN wget -O /tmp/phpmyadmin.tar.gz https://files.phpmyadmin.net/phpMyAdmin/${PHPMYADMIN_VERSION}/phpMyAdmin-${PHPMYADMIN_VERSION}-all-languages.tar.gz
+RUN tar xfvz /tmp/phpmyadmin.tar.gz -C /var/www
+RUN ln -s /var/www/phpMyAdmin-${PHPMYADMIN_VERSION}-all-languages /var/www/phpmyadmin
+RUN mv /var/www/phpmyadmin/config.sample.inc.php /var/www/phpmyadmin/config.inc.php
+
+# add glpi
+RUN echo "Installing GLPI ${GLPI_VERSION}"
+RUN cd /var/www/html && \
+wget https://github.com/glpi-project/glpi/releases/download/${GLPI_VERSION}/glpi-${GLPI_VERSION}.tgz && \
+tar -xvzf glpi-${GLPI_VERSION}.tgz && \
+rm -f glpi-${GLPI_VERSION}.tgz 
+RUN ls -la /var/www/html
+RUN mkdir -p /etc/glpi
+RUN mkdir -p /var/lib/glpi
+RUN mkdir -p /var/log/glpi
+RUN mkdir -p /var/www/html/inc/ && \
+    echo "<?php \
+define('GLPI_CONFIG_DIR', '/etc/glpi/'); \
+if (file_exists(GLPI_CONFIG_DIR . '/local_define.php')) { \
+require_once GLPI_CONFIG_DIR . '/local_define.php'; \
+}" > /var/www/html/inc/downstream.php
+RUN ls -la /var/www/html
+RUN mv /var/www/html/glpi/config /etc/glpi && \
+mv /var/www/html/glpi/files /var/lib/glpi 
+RUN echo "<?php \
+define('GLPI_VAR_DIR', '/var/lib/glpi'); \
+define('GLPI_DOC_DIR', GLPI_VAR_DIR); \
+define('GLPI_CRON_DIR', GLPI_VAR_DIR . '/_cron'); \
+define('GLPI_DUMP_DIR', GLPI_VAR_DIR . '/_dumps'); \
+define('GLPI_GRAPH_DIR', GLPI_VAR_DIR . '/_graphs'); \
+define('GLPI_LOCK_DIR', GLPI_VAR_DIR . '/_lock'); \
+define('GLPI_PICTURE_DIR', GLPI_VAR_DIR . '/_pictures'); \
+define('GLPI_PLUGIN_DOC_DIR', GLPI_VAR_DIR . '/_plugins'); \
+define('GLPI_RSS_DIR', GLPI_VAR_DIR . '/_rss'); \
+define('GLPI_SESSION_DIR', GLPI_VAR_DIR . '/_sessions'); \
+define('GLPI_TMP_DIR', GLPI_VAR_DIR . '/_tmp'); \
+define('GLPI_UPLOAD_DIR', GLPI_VAR_DIR . '/_uploads'); \
+define('GLPI_CACHE_DIR', GLPI_VAR_DIR . '/_cache'); \
+define('GLPI_LOG_DIR', '/var/log/glpi');" > /etc/glpi/local_define.php
+
+RUN chown root:root /var/www/html/ -R && \
+chown www-data:www-data /etc/glpi -R && \
+chown www-data:www-data /var/lib/glpi -R && \
+chown www-data:www-data /var/log/glpi -R && \
+find /var/www/html/ -type f -exec chmod 0644 {} \; && \
+find /var/www/html/ -type d -exec chmod 0755 {} \; && \
+find /etc/glpi -type f -exec chmod 0644 {} \; && \
+find /etc/glpi -type d -exec chmod 0755 {} \; && \
+find /var/lib/glpi -type f -exec chmod 0644 {} \; && \
+find /var/lib/glpi -type d -exec chmod 0755 {} \; && \
+find /var/log/glpi -type f -exec chmod 0644 {} \; && \
+find /var/log/glpi -type d -exec chmod 0755 {} \;
+
+RUN echo "# GLPI core \
+# Run cron to execute task even when no user connected \
+* * * * * apache /usr/bin/php /var/www/front/cron.php &>/dev/null" > /etc/cron.d/glpi
+
+
+RUN echo "Updating settings for PHP ${PHP_VERSION}" && \
+        sed -ri -e "s/^upload_max_filesize.*/upload_max_filesize = ${PHP_UPLOAD_MAX_FILESIZE}/" /etc/php/${PHP_VERSION}/apache2/php.ini \
+        -e "s/^post_max_size.*/post_max_size = ${PHP_POST_MAX_SIZE}/" /etc/php/${PHP_VERSION}/apache2/php.ini \
+        -e "s/^memory_limit.*/memory_limit = ${PHP_MEMORY_LIMIT}/" /etc/php/${PHP_VERSION}/apache2/php.ini \
+        -e "s/^max_execution_time.*/max_execution_time = ${PHP_MAX_EXECUTION_TIME}/" /etc/php/${PHP_VERSION}/apache2/php.ini \
+        -e "s/^;date.timezone.*/date.timezone = Europe\/London/" /etc/php/${PHP_VERSION}/apache2/php.ini \
+        -e "s|;sendmail_path =|sendmail_path = /usr/sbin/ssmtp -t|" /etc/php/${PHP_VERSION}/apache2/php.ini \
+        -e  "s/;date.timezone =/date.timezone = UTC/g" /etc/php/${PHP_VERSION}/cli/php.ini \
+        -e "s|^;error_log = syslog|error_log = /dev/stderr|" /etc/php/${PHP_VERSION}/apache2/php.ini \
+        -e "s|^;error_log = syslog|error_log = /dev/stderr|" /etc/php/${PHP_VERSION}/cli/php.ini
+
+# Add composer
+RUN php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');" && \
+    php composer-setup.php && \
+    php -r "unlink('composer-setup.php');" && \
+    mv composer.phar /usr/local/bin/composer
+
+# config to enable .htaccess
+ADD apache_default /etc/apache2/sites-available/000-default.conf
+RUN a2enmod rewrite proxy_http headers expires
+
+# enable real IP logging
+RUN a2enmod remoteip && echo "RemoteIPHeader X-Forwarded-For" > /etc/apache2/conf-available/remoteip.conf && \
+    echo "RemoteIPInternalProxy 10.0.0.0/8" >> /etc/apache2/conf-available/remoteip.conf && \
+    a2enconf remoteip
+
+RUN echo "# log apache to stderr" && \
+        ln -sf /dev/stderr /var/log/apache2/access.log && \
+        ln -sf /dev/stderr /var/log/apache2/error.log
+
+
+ RUN echo "# Listen only on IPv4 addresses" && \
+    sed -i 's/^Listen .*/Listen 0.0.0.0:80/' /etc/apache2/ports.conf
+
+
+# Configure /app folder with sample app
+RUN mkdir -p /app && rm -fr /var/www/html && ln -s /app /var/www/html
+ADD index.php /app
+ADD phpinfo.php /app
+
+RUN echo "Allowing Apache/PHP to write to the app" && \
+        chown -R www-data:staff /var/www && \
+        chown -R www-data:staff /app
+
+RUN echo "Editing APACHE_RUN_GROUP environment variable" && \
+        sed -i "s/export APACHE_RUN_GROUP=www-data/export APACHE_RUN_GROUP=staff/" /etc/apache2/envvars
+
+RUN echo "Setting up MySQL directories" && \
+        mkdir -p /var/run/mysqld && \
+        mkdir -p /var/log/mysql && \
+        chown -R mysql:mysql /var/run/mysqld && \
+        chown -R mysql:mysql /var/log/mysql
+
+# clean up
+RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+
+# Add volumes for the app and MySql
+VOLUME  ["/var/lib/mysql", "/app" ]
+
+EXPOSE 80 3306
+CMD ["/run.sh"]

@@ -1,0 +1,21 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2023 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# If the control reaches this step, the service can be enabled and started
+
+set -e
+
+# Redirect any output to the journal (stderr)
+exec 1>&2
+
+# Remove old service
+if [ -f ../systemd/user/lamp-app.service ]; then
+    systemctl --user stop lamp-app.service
+    rm ../systemd/user/lamp-app.service
+fi
+# Restart service
+systemctl --user try-restart lamp.service
