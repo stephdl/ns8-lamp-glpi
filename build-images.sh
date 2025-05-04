@@ -34,7 +34,7 @@ container=$(buildah from scratch)
 # Reuse existing nodebuilder-lamp container, to speed up builds
 if ! buildah containers --format "{{.ContainerName}}" | grep -q nodebuilder-lamp; then
     echo "Pulling NodeJS runtime..."
-    buildah from --name nodebuilder-lamp -v "${PWD}:/usr/src:Z" docker.io/library/node:lts
+    buildah from --name nodebuilder-lamp -v "${PWD}:/usr/src:Z" docker.io/library/node:16
 fi
 
 echo "Build static UI files with node..."
