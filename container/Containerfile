@@ -110,6 +110,43 @@ RUN tar xfvz /tmp/phpmyadmin.tar.gz -C /var/www
 RUN ln -s /var/www/phpMyAdmin-${PHPMYADMIN_VERSION}-all-languages /var/www/phpmyadmin
 RUN mv /var/www/phpmyadmin/config.sample.inc.php /var/www/phpmyadmin/config.inc.php
 
+RUN echo "Updating settings for PHP ${PHP_VERSION}" && \
+        sed -ri -e "s/^upload_max_filesize.*/upload_max_filesize = ${PHP_UPLOAD_MAX_FILESIZE}/" /etc/php/${PHP_VERSION}/apache2/php.ini \
+        -e "s/^post_max_size.*/post_max_size = ${PHP_POST_MAX_SIZE}/" /etc/php/${PHP_VERSION}/apache2/php.ini \
+        -e "s/^memory_limit.*/memory_limit = ${PHP_MEMORY_LIMIT}/" /etc/php/${PHP_VERSION}/apache2/php.ini \
+        -e "s/^max_execution_time.*/max_execution_time = ${PHP_MAX_EXECUTION_TIME}/" /etc/php/${PHP_VERSION}/apache2/php.ini \
+        -e "s/^;date.timezone.*/date.timezone = Europe\/London/" /etc/php/${PHP_VERSION}/apache2/php.ini \
+        -e "s|;sendmail_path =|sendmail_path = /usr/sbin/ssmtp -t|" /etc/php/${PHP_VERSION}/apache2/php.ini \
+        -e  "s/;date.timezone =/date.timezone = UTC/g" /etc/php/${PHP_VERSION}/cli/php.ini \
+        -e "s|^;error_log = syslog|error_log = /dev/stderr|" /etc/php/${PHP_VERSION}/apache2/php.ini \
+        -e "s|^;error_log = syslog|error_log = /dev/stderr|" /etc/php/${PHP_VERSION}/cli/php.ini
+
+# Add composer
+RUN php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');" && \
+    php composer-setup.php && \
+    php -r "unlink('composer-setup.php');" && \
+    mv composer.phar /usr/local/bin/composer
+
+# config to enable .htaccess
+ADD apache_default /etc/apache2/sites-available/000-default.conf
+RUN a2enmod rewrite proxy_http headers expires
+
+# enable real IP logging
+RUN a2enmod remoteip && echo "RemoteIPHeader X-Forwarded-For" > /etc/apache2/conf-available/remoteip.conf && \
+    echo "RemoteIPInternalProxy 10.0.0.0/8" >> /etc/apache2/conf-available/remoteip.conf && \
+    a2enconf remoteip
+
+RUN echo "# log apache to stderr" && \
+        ln -sf /dev/stderr /var/log/apache2/access.log && \
+        ln -sf /dev/stderr /var/log/apache2/error.log
+
+
+ RUN echo "# Listen only on IPv4 addresses" && \
+    sed -i 's/^Listen .*/Listen 0.0.0.0:80/' /etc/apache2/ports.conf
+
+
+# Configure /app folder with sample app
+RUN mkdir -p /app && rm -fr /var/www/html && ln -s /app /var/www/html
 # add glpi
 RUN echo "Installing GLPI ${GLPI_VERSION}"
 RUN cd /var/www/html && \
@@ -161,47 +198,6 @@ find /var/log/glpi -type d -exec chmod 0755 {} \;
 RUN echo "# GLPI core \
 # Run cron to execute task even when no user connected \
 * * * * * apache /usr/bin/php /var/www/front/cron.php &>/dev/null" > /etc/cron.d/glpi
-
-
-RUN echo "Updating settings for PHP ${PHP_VERSION}" && \
-        sed -ri -e "s/^upload_max_filesize.*/upload_max_filesize = ${PHP_UPLOAD_MAX_FILESIZE}/" /etc/php/${PHP_VERSION}/apache2/php.ini \
-        -e "s/^post_max_size.*/post_max_size = ${PHP_POST_MAX_SIZE}/" /etc/php/${PHP_VERSION}/apache2/php.ini \
-        -e "s/^memory_limit.*/memory_limit = ${PHP_MEMORY_LIMIT}/" /etc/php/${PHP_VERSION}/apache2/php.ini \
-        -e "s/^max_execution_time.*/max_execution_time = ${PHP_MAX_EXECUTION_TIME}/" /etc/php/${PHP_VERSION}/apache2/php.ini \
-        -e "s/^;date.timezone.*/date.timezone = Europe\/London/" /etc/php/${PHP_VERSION}/apache2/php.ini \
-        -e "s|;sendmail_path =|sendmail_path = /usr/sbin/ssmtp -t|" /etc/php/${PHP_VERSION}/apache2/php.ini \
-        -e  "s/;date.timezone =/date.timezone = UTC/g" /etc/php/${PHP_VERSION}/cli/php.ini \
-        -e "s|^;error_log = syslog|error_log = /dev/stderr|" /etc/php/${PHP_VERSION}/apache2/php.ini \
-        -e "s|^;error_log = syslog|error_log = /dev/stderr|" /etc/php/${PHP_VERSION}/cli/php.ini
-
-# Add composer
-RUN php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');" && \
-    php composer-setup.php && \
-    php -r "unlink('composer-setup.php');" && \
-    mv composer.phar /usr/local/bin/composer
-
-# config to enable .htaccess
-ADD apache_default /etc/apache2/sites-available/000-default.conf
-RUN a2enmod rewrite proxy_http headers expires
-
-# enable real IP logging
-RUN a2enmod remoteip && echo "RemoteIPHeader X-Forwarded-For" > /etc/apache2/conf-available/remoteip.conf && \
-    echo "RemoteIPInternalProxy 10.0.0.0/8" >> /etc/apache2/conf-available/remoteip.conf && \
-    a2enconf remoteip
-
-RUN echo "# log apache to stderr" && \
-        ln -sf /dev/stderr /var/log/apache2/access.log && \
-        ln -sf /dev/stderr /var/log/apache2/error.log
-
-
- RUN echo "# Listen only on IPv4 addresses" && \
-    sed -i 's/^Listen .*/Listen 0.0.0.0:80/' /etc/apache2/ports.conf
-
-
-# Configure /app folder with sample app
-RUN mkdir -p /app && rm -fr /var/www/html && ln -s /app /var/www/html
-ADD index.php /app
-ADD phpinfo.php /app
 
 RUN echo "Allowing Apache/PHP to write to the app" && \
         chown -R www-data:staff /var/www && \
