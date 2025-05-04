@@ -200,7 +200,7 @@ find /var/log/glpi -type d -exec chmod 0755 {} \;
 
 RUN echo -e "# GLPI core \n\
 # Run cron to execute task even when no user connected \n\
-* * * * * apache /usr/bin/php /var/www/front/cron.php &>/dev/null" > /etc/cron.d/glpi
+* * * * * www-data /usr/bin/php /var/www/front/cron.php &>/dev/null" > /etc/cron.d/glpi
 
 RUN echo "Allowing Apache/PHP to write to the app" && \
         chown -R www-data:staff /var/www && \
