@@ -119,7 +119,7 @@ else
 fi
 echo "Starting supervisord"
 exec supervisord -c /etc/supervisor/supervisord.conf -n
-/usr/bin/php /app/bin/console database:enable_timezones
+su - www-data -s /bin/bash -c "/usr/bin/php /app/bin/console database:enable_timezones"
 su - www-data -s /bin/bash -c "/usr/bin/php /app/bin/console db:install --no-interaction --quiet --db-host=127.0.0.1 --db-port=3306 --db-name=${_userdb} --db-user=${_user} --db-password=${_userpass} --force --reconfigure"
 echo "Upgrading glpi database"
 su - www-data -s /bin/bash -c "/usr/bin/php  /app/bin/console glpi:maintenance:enable"
