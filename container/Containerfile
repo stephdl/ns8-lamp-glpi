@@ -115,8 +115,8 @@ RUN echo "Updating settings for PHP ${PHP_VERSION}" && \
         -e "s|^;error_log = syslog|error_log = /dev/stderr|" /etc/php/${PHP_VERSION}/cli/php.ini \
         -e "s|^session.cookie_httponly =$|session.cookie_httponly = 1|" /etc/php/${PHP_VERSION}/apache2/php.ini \
         -e "s|^session.cookie_httponly =$|session.cookie_httponly = 1|" /etc/php/${PHP_VERSION}/cli/php.ini \
-        -e "s|^;session.cookie_secure =$|session.cookie_secure = 1|" /etc/php/${PHP_VERSION}/apache2/php.ini \
-        -e "s|^;session.cookie_secure =$|session.cookie_secure = 1|" /etc/php/${PHP_VERSION}/cli/php.ini
+        -e "s|^;session.cookie_secure =$|;session.cookie_secure = 1|" /etc/php/${PHP_VERSION}/apache2/php.ini \
+        -e "s|^;session.cookie_secure =$|;session.cookie_secure = 1|" /etc/php/${PHP_VERSION}/cli/php.ini
 
 # Add composer
 RUN php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');" && \
