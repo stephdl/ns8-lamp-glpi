@@ -41,7 +41,7 @@ ExecStart=/usr/bin/podman run --conmon-pidfile %t/apache2-app.pid \
     --env PHP_UPLOAD_MAX_FILESIZE=${PHP_UPLOAD_MAX_FILESIZE} \
     --env PHP_MEMORY_LIMIT=${PHP_MEMORY_LIMIT} \
     --env PHPMYADMIN_ENABLED=${PHPMYADMIN_ENABLED} \
-    ${LAMP_SERVER_IMAGE}
+    ${LAMP_SERVER_GLPI_IMAGE}
 ExecStop=/usr/bin/podman stop --ignore --cidfile %t/apache2-app.ctr-id -t 10
 ExecReload=/usr/bin/podman kill -s HUP apache2-app
 SyslogIdentifier=%u

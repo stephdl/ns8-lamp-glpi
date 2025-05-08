@@ -13,7 +13,7 @@ ENV DOCKER_USER_GID 20
 ENV BOOT2DOCKER_ID 1005
 ENV BOOT2DOCKER_GID 50
 
-ENV PHPMYADMIN_VERSION=5.2.1
+ENV PHPMYADMIN_VERSION=5.2.2
 
 #Environment variables to configure php
 ENV PHP_UPLOAD_MAX_FILESIZE 100M
@@ -43,19 +43,13 @@ RUN LC_ALL=C.UTF-8 add-apt-repository -y ppa:ondrej/php && \
   apt-get update && \
   apt-get -y upgrade && \
   apt-get -y install supervisor \
-      vim \
-      nano \
       wget \
-      git \
-      tree \
       cron \
+      curl \
       apache2 \
       libapache2-mod-php${PHP_VERSION} \
       mariadb-server \
       pwgen \
-      ftp \
-      ftp-ssl \
-      ssmtp \
       php${PHP_VERSION}-ftp \
       php${PHP_VERSION}-ldap \
       php${PHP_VERSION}-pdo-mysql \
@@ -81,21 +75,20 @@ RUN LC_ALL=C.UTF-8 add-apt-repository -y ppa:ondrej/php && \
       php${PHP_VERSION}-cli \
       php${PHP_VERSION}-common \
       php${PHP_VERSION}-opcache \
-      php${PHP_VERSION}-readline \
-      zip \
-      unzip \
-      curl && \
+      php${PHP_VERSION}-readline && \
   apt-get -y autoremove && \
   apt-get -y clean && \
   echo "ServerName localhost" >> /etc/apache2/apache2.conf
 
 # Add image configuration and scripts
 ADD start-apache2.sh /start-apache2.sh
+ADD configure-glpi.sh /configure-glpi.sh
 ADD run.sh /run.sh
 RUN chmod 755 /*.sh
 ADD supervisord-apache2.conf /etc/supervisor/conf.d/supervisord-apache2.conf
 ADD supervisord-mysqld.conf /etc/supervisor/conf.d/supervisord-mysqld.conf
 ADD supervisord-cron.conf /etc/supervisor/conf.d/supervisord-cron.conf
+ADD supervisord-glpi.conf /etc/supervisor/conf.d/supervisord-glpi.conf
 ADD supervisord.conf /etc/supervisor/supervisord.conf
 
 # Remove pre-installed database
@@ -110,59 +103,6 @@ RUN tar xfvz /tmp/phpmyadmin.tar.gz -C /var/www
 RUN ln -s /var/www/phpMyAdmin-${PHPMYADMIN_VERSION}-all-languages /var/www/phpmyadmin
 RUN mv /var/www/phpmyadmin/config.sample.inc.php /var/www/phpmyadmin/config.inc.php
 
-# add glpi
-RUN echo "Installing GLPI ${GLPI_VERSION}"
-RUN cd /var/www/html && \
-wget https://github.com/glpi-project/glpi/releases/download/${GLPI_VERSION}/glpi-${GLPI_VERSION}.tgz && \
-tar -xvzf glpi-${GLPI_VERSION}.tgz && \
-rm -f glpi-${GLPI_VERSION}.tgz 
-RUN ls -la /var/www/html
-RUN mkdir -p /etc/glpi
-RUN mkdir -p /var/lib/glpi
-RUN mkdir -p /var/log/glpi
-RUN mkdir -p /var/www/html/inc/ && \
-    echo "<?php \
-define('GLPI_CONFIG_DIR', '/etc/glpi/'); \
-if (file_exists(GLPI_CONFIG_DIR . '/local_define.php')) { \
-require_once GLPI_CONFIG_DIR . '/local_define.php'; \
-}" > /var/www/html/inc/downstream.php
-RUN ls -la /var/www/html
-RUN mv /var/www/html/glpi/config /etc/glpi && \
-mv /var/www/html/glpi/files /var/lib/glpi 
-RUN echo "<?php \
-define('GLPI_VAR_DIR', '/var/lib/glpi'); \
-define('GLPI_DOC_DIR', GLPI_VAR_DIR); \
-define('GLPI_CRON_DIR', GLPI_VAR_DIR . '/_cron'); \
-define('GLPI_DUMP_DIR', GLPI_VAR_DIR . '/_dumps'); \
-define('GLPI_GRAPH_DIR', GLPI_VAR_DIR . '/_graphs'); \
-define('GLPI_LOCK_DIR', GLPI_VAR_DIR . '/_lock'); \
-define('GLPI_PICTURE_DIR', GLPI_VAR_DIR . '/_pictures'); \
-define('GLPI_PLUGIN_DOC_DIR', GLPI_VAR_DIR . '/_plugins'); \
-define('GLPI_RSS_DIR', GLPI_VAR_DIR . '/_rss'); \
-define('GLPI_SESSION_DIR', GLPI_VAR_DIR . '/_sessions'); \
-define('GLPI_TMP_DIR', GLPI_VAR_DIR . '/_tmp'); \
-define('GLPI_UPLOAD_DIR', GLPI_VAR_DIR . '/_uploads'); \
-define('GLPI_CACHE_DIR', GLPI_VAR_DIR . '/_cache'); \
-define('GLPI_LOG_DIR', '/var/log/glpi');" > /etc/glpi/local_define.php
-
-RUN chown root:root /var/www/html/ -R && \
-chown www-data:www-data /etc/glpi -R && \
-chown www-data:www-data /var/lib/glpi -R && \
-chown www-data:www-data /var/log/glpi -R && \
-find /var/www/html/ -type f -exec chmod 0644 {} \; && \
-find /var/www/html/ -type d -exec chmod 0755 {} \; && \
-find /etc/glpi -type f -exec chmod 0644 {} \; && \
-find /etc/glpi -type d -exec chmod 0755 {} \; && \
-find /var/lib/glpi -type f -exec chmod 0644 {} \; && \
-find /var/lib/glpi -type d -exec chmod 0755 {} \; && \
-find /var/log/glpi -type f -exec chmod 0644 {} \; && \
-find /var/log/glpi -type d -exec chmod 0755 {} \;
-
-RUN echo "# GLPI core \
-# Run cron to execute task even when no user connected \
-* * * * * apache /usr/bin/php /var/www/front/cron.php &>/dev/null" > /etc/cron.d/glpi
-
-
 RUN echo "Updating settings for PHP ${PHP_VERSION}" && \
         sed -ri -e "s/^upload_max_filesize.*/upload_max_filesize = ${PHP_UPLOAD_MAX_FILESIZE}/" /etc/php/${PHP_VERSION}/apache2/php.ini \
         -e "s/^post_max_size.*/post_max_size = ${PHP_POST_MAX_SIZE}/" /etc/php/${PHP_VERSION}/apache2/php.ini \
@@ -172,7 +112,11 @@ RUN echo "Updating settings for PHP ${PHP_VERSION}" && \
         -e "s|;sendmail_path =|sendmail_path = /usr/sbin/ssmtp -t|" /etc/php/${PHP_VERSION}/apache2/php.ini \
         -e  "s/;date.timezone =/date.timezone = UTC/g" /etc/php/${PHP_VERSION}/cli/php.ini \
         -e "s|^;error_log = syslog|error_log = /dev/stderr|" /etc/php/${PHP_VERSION}/apache2/php.ini \
-        -e "s|^;error_log = syslog|error_log = /dev/stderr|" /etc/php/${PHP_VERSION}/cli/php.ini
+        -e "s|^;error_log = syslog|error_log = /dev/stderr|" /etc/php/${PHP_VERSION}/cli/php.ini \
+        -e "s|^session.cookie_httponly =$|session.cookie_httponly = 1|" /etc/php/${PHP_VERSION}/apache2/php.ini \
+        -e "s|^session.cookie_httponly =$|session.cookie_httponly = 1|" /etc/php/${PHP_VERSION}/cli/php.ini \
+        -e "s|^;session.cookie_secure =$|;session.cookie_secure = 1|" /etc/php/${PHP_VERSION}/apache2/php.ini \
+        -e "s|^;session.cookie_secure =$|;session.cookie_secure = 1|" /etc/php/${PHP_VERSION}/cli/php.ini
 
 # Add composer
 RUN php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');" && \
@@ -200,8 +144,37 @@ RUN echo "# log apache to stderr" && \
 
 # Configure /app folder with sample app
 RUN mkdir -p /app && rm -fr /var/www/html && ln -s /app /var/www/html
-ADD index.php /app
-ADD phpinfo.php /app
+# add glpi
+RUN echo "Installing GLPI ${GLPI_VERSION}"
+RUN cd /var/www/html && \
+wget https://github.com/glpi-project/glpi/releases/download/${GLPI_VERSION}/glpi-${GLPI_VERSION}.tgz && \
+tar -xvzf glpi-${GLPI_VERSION}.tgz && \
+rm -f glpi-${GLPI_VERSION}.tgz 
+RUN mkdir -p /etc/glpi
+RUN mkdir -p /var/lib/glpi
+RUN mkdir -p /var/log/glpi
+RUN mv /var/www/html/glpi/config /etc/glpi && \
+mv /var/www/html/glpi/files/* /var/lib/glpi && \
+mv /var/www/html/glpi/* /var/www/html 
+
+RUN mkdir -p /var/www/html/inc/
+ADD downstream.php /var/www/html/inc/downstream.php
+ADD local_define.php /etc/glpi/local_define.php
+ADD glpi /etc/cron.d/glpi
+
+RUN chown root:root /var/www/html/ -R && \
+chown www-data:staff /etc/glpi -R && \
+chown www-data:staff /var/lib/glpi -R && \
+chown www-data:staff /var/log/glpi -R && \
+find /var/www/html/ -type f -exec chmod 0644 {} \; && \
+find /var/www/html/ -type d -exec chmod 0755 {} \; && \
+find /etc/glpi -type f -exec chmod 0644 {} \; && \
+find /etc/glpi -type d -exec chmod 0755 {} \; && \
+find /var/lib/glpi -type f -exec chmod 0644 {} \; && \
+find /var/lib/glpi -type d -exec chmod 0755 {} \; && \
+find /var/log/glpi -type f -exec chmod 0644 {} \; && \
+find /var/log/glpi -type d -exec chmod 0755 {} \;
+
 
 RUN echo "Allowing Apache/PHP to write to the app" && \
         chown -R www-data:staff /var/www && \

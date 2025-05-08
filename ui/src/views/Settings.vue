@@ -104,11 +104,7 @@
                     value="create_mysql_user"
                     :label="$t('settings.create_mysql_user')"
                     v-model="create_mysql_user"
-                    :disabled="
-                      loading.getConfiguration ||
-                      loading.configureModule ||
-                      !firstConfig
-                    "
+                    disabled
                     class="mg-bottom"
                   >
                     <template slot="text-left">{{
@@ -272,7 +268,7 @@ export default {
       isLetsEncryptEnabled: false,
       isHttpToHttpsEnabled: true,
       phpmyadmin_enabled: true,
-      create_mysql_user: false,
+      create_mysql_user: true,
       php_upload_max_filesize: "100",
       php_memory_limit: "512",
       mysql_user_name: "",
@@ -369,7 +365,7 @@ export default {
       this.mysql_admin_pass = config.mysql_admin_pass;
       this.firstConfig = config.firstConfig;
       this.loading.getConfiguration = false;
-      this.create_mysql_user = config.create_mysql_user;
+      this.create_mysql_user = true;
       this.php_upload_max_filesize = config.php_upload_max_filesize;
       this.php_memory_limit = config.php_memory_limit;
       this.phpmyadmin_enabled = config.phpmyadmin_enabled;
