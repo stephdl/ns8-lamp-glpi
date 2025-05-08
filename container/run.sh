@@ -99,14 +99,6 @@ if [[ ! -d /var/lib/mysql/mysql ]]; then
     /mysql_init.sh
     # create the mysql settings
     #echo "=> Creating mysql settings"
-    _user=${MYSQL_USER_NAME:?}
-    _userdb=${MYSQL_USER_DB:?}
-    _userpass=${MYSQL_USER_PASS:?}
-    #su - www-data -s /bin/bash -c "/usr/bin/php /app/bin/console db:install --no-interaction --quiet --db-host=127.0.0.1 --db-port=3306 --db-name=${_userdb} --db-user=${_user} --db-password=${_userpass} --force --reconfigure"
-    # populate the time zone tables
-    echo "=> Populating the time zone tables"
-    mysql_tzinfo_to_sql /usr/share/zoneinfo | mysql  mysql
-    mysql -uroot -e "GRANT SELECT ON mysql.time_zone_name TO 'glpi'"
 else
     echo "=> Using an existing volume of MySQL"
     #echo "Upgrading glpi database"
@@ -117,14 +109,14 @@ else
     #su - www-data -s /bin/bash -c "/usr/bin/php  /app/bin/console glpi:migration:unsigned_keys --no-interaction"
     #su - www-data -s /bin/bash -c "/usr/bin/php  /app/bin/console glpi:maintenance:disable"
 fi
-/usr/bin/php /app/bin/console database:enable_timezones
-/usr/bin/php /app/bin/console db:install --no-interaction --quiet --db-host=127.0.0.1 --db-port=3306 --db-name=${_userdb} --db-user=${_user} --db-password=${_userpass} --force --reconfigure
-/usr/bin/php  /app/bin/console glpi:maintenance:enable
-/usr/bin/php  /app/bin/console db:update --allow-unstable --no-interaction
-/usr/bin/php  /app/bin/console glpi:migration:myisam_to_innodb --no-interaction
-/usr/bin/php  /app/bin/console glpi:migration:utf8mb4 --no-interaction
-/usr/bin/php  /app/bin/console glpi:migration:unsigned_keys --no-interaction
-/usr/bin/php  /app/bin/console glpi:maintenance:disable
+# /usr/bin/php /app/bin/console database:enable_timezones
+# /usr/bin/php /app/bin/console db:install --no-interaction --quiet --db-host=127.0.0.1 --db-port=3306 --db-name=${_userdb} --db-user=${_user} --db-password=${_userpass} --force --reconfigure
+# /usr/bin/php  /app/bin/console glpi:maintenance:enable
+# /usr/bin/php  /app/bin/console db:update --allow-unstable --no-interaction
+# /usr/bin/php  /app/bin/console glpi:migration:myisam_to_innodb --no-interaction
+# /usr/bin/php  /app/bin/console glpi:migration:utf8mb4 --no-interaction
+# /usr/bin/php  /app/bin/console glpi:migration:unsigned_keys --no-interaction
+# /usr/bin/php  /app/bin/console glpi:maintenance:disable
 
 echo "Starting supervisord"
 exec supervisord -c /etc/supervisor/supervisord.conf -n

@@ -91,6 +91,7 @@ RUN LC_ALL=C.UTF-8 add-apt-repository -y ppa:ondrej/php && \
 
 # Add image configuration and scripts
 ADD start-apache2.sh /start-apache2.sh
+ADD configure-glpi.sh /configure-glpi.sh
 ADD run.sh /run.sh
 RUN chmod 755 /*.sh
 ADD supervisord-apache2.conf /etc/supervisor/conf.d/supervisord-apache2.conf
