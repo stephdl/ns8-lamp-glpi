@@ -31,17 +31,17 @@ images+=("${repobase}/lamp-server-glpi")
 # Create a new empty container image
 container=$(buildah from scratch)
 
-# Reuse existing nodebuilder-lamp container, to speed up builds
-if ! buildah containers --format "{{.ContainerName}}" | grep -q nodebuilder-lamp; then
+# Reuse existing nodebuilder-lamp-glpi container, to speed up builds
+if ! buildah containers --format "{{.ContainerName}}" | grep -q nodebuilder-lamp-glpi; then
     echo "Pulling NodeJS runtime..."
-    buildah from --name nodebuilder-lamp -v "${PWD}:/usr/src:Z" docker.io/library/node:lts
+    buildah from --name nodebuilder-lamp-glpi -v "${PWD}:/usr/src:Z" docker.io/library/node:lts
 fi
 
 echo "Build static UI files with node..."
 buildah run \
     --workingdir=/usr/src/ui \
     --env="NODE_OPTIONS=--openssl-legacy-provider" \
-    nodebuilder-lamp \
+    nodebuilder-lamp-glpi \
     sh -c "yarn install && yarn build"
 
 # Add imageroot directory to the container image
