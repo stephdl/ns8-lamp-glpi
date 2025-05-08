@@ -43,19 +43,12 @@ RUN LC_ALL=C.UTF-8 add-apt-repository -y ppa:ondrej/php && \
   apt-get update && \
   apt-get -y upgrade && \
   apt-get -y install supervisor \
-      vim \
-      nano \
       wget \
-      git \
-      tree \
       cron \
       apache2 \
       libapache2-mod-php${PHP_VERSION} \
       mariadb-server \
       pwgen \
-      ftp \
-      ftp-ssl \
-      ssmtp \
       php${PHP_VERSION}-ftp \
       php${PHP_VERSION}-ldap \
       php${PHP_VERSION}-pdo-mysql \
@@ -81,10 +74,7 @@ RUN LC_ALL=C.UTF-8 add-apt-repository -y ppa:ondrej/php && \
       php${PHP_VERSION}-cli \
       php${PHP_VERSION}-common \
       php${PHP_VERSION}-opcache \
-      php${PHP_VERSION}-readline \
-      zip \
-      unzip \
-      curl && \
+      php${PHP_VERSION}-readline && \
   apt-get -y autoremove && \
   apt-get -y clean && \
   echo "ServerName localhost" >> /etc/apache2/apache2.conf
