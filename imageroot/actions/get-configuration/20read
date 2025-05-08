@@ -21,8 +21,8 @@ config = {}
 config["host"] = os.getenv("TRAEFIK_HOST","")
 config["http2https"] = os.getenv("TRAEFIK_HTTP2HTTPS") == "True"
 config["lets_encrypt"] = os.getenv("TRAEFIK_LETS_ENCRYPT") == "True"
-config["mysql_user_name"] = os.getenv("MYSQL_USER_NAME","")
-config["mysql_user_db"] = os.getenv("MYSQL_USER_DB","")
+config["mysql_user_name"] = os.getenv("MYSQL_USER_NAME","glpi")
+config["mysql_user_db"] = os.getenv("MYSQL_USER_DB","glpi")
 
 # check if the mysql is configured
 config['firstConfig'] = True if not os.path.exists("password.env") else False
